@@ -65,27 +65,27 @@ These data (zipped csv files) with cell_id corresponding to raster &  admin code
 The aggregated versions are also included in the output folder (may be easier to work with).  You can match these to the shapefiles and apply models and plot however! Although mapping to admin units for African continent is very slow. If working with the gridded datasets, I  would recommend using data.table as these are large and can be a pain to read in and manipulate otherwise. 
 
 ## Plotting examples
-- Script [here]("R/plotting.R")
+- Script [here](R/plotting.R)
 - Estimate cfrs per Jess (smooth spline)
 - Assumed infection prop of 0.4 cummulatively
 
 - Continent (at grid cell level)
-```{r}
+```{r, out.width = "60%"}
 include_graphics("figs/afr_deaths_grid.jpeg")
 ```
 
 - Continent (at admin level, not all countries have admin3 or even admin2 data in malariaAtlas so would need to download individual country sources, right now just using admin 2)
-```{r}
+```{r, out.width = "60%"}
 include_graphics("figs/afr_deaths_admin2.jpeg")
 ```
 
 - Mada grid cell
-```{r}
+```{r, out.width = "60%"}
 include_graphics("figs/mada_deaths_grid.jpeg")
 ```
 
 - Mada admin 3
-```{r}
+```{r, out.width = "60%"}
 include_graphics("figs/mada_deaths_admin3.jpeg")
 ```
 

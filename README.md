@@ -58,7 +58,7 @@ in and manipulate otherwise.
 
 ## Plotting examples
 
-  - Script [here](%22R/plotting.R%22)
+  - Script [here](R/plotting.R)
 
   - Estimate cfrs per Jess (smooth spline)
 
@@ -72,7 +72,7 @@ in and manipulate otherwise.
 include_graphics("figs/afr_deaths_grid.jpeg")
 ```
 
-<img src="figs/afr_deaths_grid.jpeg" width="2100" />
+<img src="figs/afr_deaths_grid.jpeg" width="60%" />
 
   - Continent (at admin level, not all countries have admin3 or even
     admin2 data in malariaAtlas so would need to download individual
@@ -84,7 +84,7 @@ include_graphics("figs/afr_deaths_grid.jpeg")
 include_graphics("figs/afr_deaths_admin2.jpeg")
 ```
 
-<img src="figs/afr_deaths_admin2.jpeg" width="2100" />
+<img src="figs/afr_deaths_admin2.jpeg" width="60%" />
 
   - Mada grid cell
 
@@ -94,7 +94,7 @@ include_graphics("figs/afr_deaths_admin2.jpeg")
 include_graphics("figs/mada_deaths_grid.jpeg")
 ```
 
-<img src="figs/mada_deaths_grid.jpeg" width="1500" />
+<img src="figs/mada_deaths_grid.jpeg" width="60%" />
 
   - Mada admin 3
 
@@ -104,7 +104,7 @@ include_graphics("figs/mada_deaths_grid.jpeg")
 include_graphics("figs/mada_deaths_admin3.jpeg")
 ```
 
-<img src="figs/mada_deaths_admin3.jpeg" width="1500" />
+<img src="figs/mada_deaths_admin3.jpeg" width="60%" />
 
 **Right now, the maps are basically just pop maps\!**
 
@@ -161,7 +161,7 @@ sessionInfo()
     ## [13] crul_0.9.0         curl_4.2           yaml_2.2.0         xfun_0.12         
     ## [17] withr_2.1.2        stringr_1.4.0      geojsonlint_0.3.0  grid_3.6.1        
     ## [21] tidyselect_0.2.5   jsonvalidate_1.1.0 httpcode_0.2.0     R6_2.4.1          
-    ## [25] jpeg_0.1-8         rmarkdown_2.1      purrr_0.3.2        magrittr_1.5      
-    ## [29] codetools_0.2-16   scales_1.0.0       htmltools_0.4.0    assertthat_0.2.1  
-    ## [33] colorspace_1.4-1   V8_3.0             stringi_1.4.5      lazyeval_0.2.2    
-    ## [37] munsell_0.5.0      crayon_1.3.4
+    ## [25] rmarkdown_2.1      purrr_0.3.2        magrittr_1.5       codetools_0.2-16  
+    ## [29] scales_1.0.0       htmltools_0.4.0    assertthat_0.2.1   colorspace_1.4-1  
+    ## [33] V8_3.0             stringi_1.4.5      lazyeval_0.2.2     munsell_0.5.0     
+    ## [37] crayon_1.3.4
