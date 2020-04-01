@@ -58,7 +58,12 @@ in and manipulate otherwise.
 
 ## Plotting examples
 
-  - Script [here](%22R/plotting.R)
+  - Script [here](%22R/plotting.R%22)
+
+  - Estimate cfrs per Jess (smooth spline)
+
+  - Assumed infection prop of 0.4 cummulatively
+
   - Continent (at grid cell level)
 
 <!-- end list -->
