@@ -1,5 +1,5 @@
 # ------------------------------------------------------------------------------------------------ #
-#' Plotting age cfrs using output data tables                                                                               
+#' Plotting age cfrs using output data tables       
 # ------------------------------------------------------------------------------------------------ #
 
 library(raster)
@@ -16,6 +16,7 @@ N.deaths <- c(0, 1, 7, 18, 38, 130, 309, 312, 208)
 CFR <- N.deaths/N.cases
 fit.cfr <- smooth.spline(age.upper - 4.5, (N.deaths/ N.cases)) # mid-point of age bracket & cases/deaths
 p_infected <- 0.4 # 40% cummulative infections
+p_symptomatic <- 0.8
 
 # Madagascar ----------------------------------------------------------------------------------
 # read in data
@@ -33,17 +34,17 @@ names(cfr) <- age_lower
 setorder(mada_grid, cell_id)
 
 # sanity checks
-check_inf <- mada_grid[, Map("*", .SD, cfr*p_infected), .SDcols = as.character(age_lower)]
+check_inf <- mada_grid[, Map("*", .SD, cfr*p_infected*p_symptomatic), .SDcols = as.character(age_lower)]
 check_pop <- mada_grid[, as.character(age_lower), with = FALSE]
 plot(colSums(check_inf, na.rm = TRUE)/colSums(check_pop, na.rm = TRUE))
-points(cfr*p_infected, col = "blue") 
+points(cfr*p_infected*p_symptomatic, col = "blue") 
 sum(colSums(check_pop, na.rm = TRUE)) # ~ 27 million people
 order_check <- check_pop$`0` == mada_grid$`0` # spot check id order stayed the same
 length(order_check[!is.na(order_check) & order_check == FALSE]) # should be zero
 
 # Plotting deaths
 mada_deaths <- copy(mada_grid)
-mada_deaths <- mada_deaths[, (as.character(age_lower)) :=  Map("*", .SD, cfr*p_infected), 
+mada_deaths <- mada_deaths[, (as.character(age_lower)) :=  Map("*", .SD, cfr*p_infected*p_symptomatic), 
                            .SDcols = as.character(age_lower)]
 mada_deaths$deaths_total <- rowSums(mada_deaths[, as.character(age_lower), with = FALSE], na.rm = TRUE)
 
@@ -60,7 +61,7 @@ mada_base$deaths_total[mada_base$deaths_total == 0] <- NA
 raster <- ggplot() + 
   geom_raster(data = mada_base, aes(x = x, y = y, 
                                        fill = deaths_total)) + 
-  scale_fill_distiller(na.value = NA, palette = "PuRd", direction = 1, 
+  scale_fill_distiller(na.value = NA, palette = "Reds", direction = 1, 
                        trans = "sqrt", name = "Estimated burden") +
   coord_quickmap()
 ggsave("figs/mada_deaths_grid.jpeg", raster, height = 7, width = 5)
@@ -70,7 +71,7 @@ mada_admin3 <- mada_base[, lapply(.SD, sum, na.rm = TRUE),
                          .SDcols = c(as.character(age_lower), "deaths_total"), 
                          by = c("admin3_code")]
 mada_admin3$admin3_code <- as.character(mada_admin3$admin3_code)
-admin3 <- readOGR("shapefiles/admin3_simple/admin3.shp")
+admin3 <- readOGR("shapefiles/admin3.shp")
 admin3 <- admin3[admin3$iso == "MDG", ]
 gg_admin3 <- fortify(admin3, region = "id_3")
 gg_admin3 %>%
@@ -79,7 +80,7 @@ gg_admin3 %>%
 mada_deaths_admin3 <- ggplot() +
   geom_polygon(data = gg_admin3, aes(x = long, y = lat, group = group, 
                                      fill = deaths_total)) + 
-  scale_fill_distiller(na.value = NA, palette = "PuRd", direction = 1, name = "Estimated burden") +
+  scale_fill_distiller(na.value = NA, palette = "Reds", direction = 1, name = "Estimated burden") +
   coord_quickmap()
 ggsave("figs/mada_deaths_admin3.jpeg", mada_deaths_admin3, height = 7, width = 5)
 
@@ -100,17 +101,17 @@ p_infected <- 0.4 # 40% cummulative infections
 setorder(afr_grid, cell_id)
 
 # sanity checks
-check_inf <- afr_grid[, Map("*", .SD, cfr*p_infected), .SDcols = names(cfr)]
+check_inf <- afr_grid[, Map("*", .SD, cfr*p_infected*p_symptomatic), .SDcols = names(cfr)]
 check_pop <- afr_grid[, names(cfr), with = FALSE]
 plot(colSums(check_inf, na.rm = TRUE)/colSums(check_pop, na.rm = TRUE))
-points(cfr*p_infected, col = "blue") 
+points(cfr*p_infected*p_symptomatic, col = "blue") 
 sum(colSums(check_pop, na.rm = TRUE)) # ~ 1.3 billion people?
 order_check <- check_pop$A0004 == afr_grid$A0004 # spot check id order stayed the same
 length(order_check[!is.na(order_check) & order_check == FALSE]) # should be zero
 
 # Plotting deaths
 afr_deaths <- copy(afr_grid)
-afr_deaths <- afr_deaths[, (names(cfr)) :=  Map("*", .SD, cfr*p_infected), 
+afr_deaths <- afr_deaths[, (names(cfr)) :=  Map("*", .SD, cfr*p_infected*p_symptomatic), 
                            .SDcols = names(cfr)]
 afr_deaths$deaths_total <- rowSums(afr_deaths[, names(cfr), with = FALSE], na.rm = TRUE)
 
@@ -127,7 +128,7 @@ afr_base$deaths_total[afr_base$deaths_total == 0] <- NA
 raster <- ggplot() + 
   geom_raster(data = afr_base, aes(x = x, y = y, 
                                     fill = deaths_total)) + 
-  scale_fill_distiller(palette = "PuRd", direction = 1, name = "Estimated burden", 
+  scale_fill_distiller(palette = "Reds", direction = 1, name = "Estimated burden", 
                        na.value = NA,
                        trans = "log", breaks = c(1, 10, 100, 1000, 1e4, 1e5)) +
   coord_quickmap()
@@ -146,7 +147,7 @@ gg_admin2 %>%
 afr_deaths_admin2 <- ggplot() +
   geom_polygon(data = gg_admin2, aes(x = long, y = lat, group = group, 
                                      fill = deaths_total)) + 
-  scale_fill_distiller(palette = "PuRd", direction = 1, name = "Estimated burden", 
+  scale_fill_distiller(palette = "Reds", direction = 1, name = "Estimated burden", 
                        trans = "log", breaks = c(1, 10, 100, 1000, 1e4, 1e5, 1e6)) +
   coord_quickmap()
 ggsave("figs/afr_deaths_admin2.jpeg", afr_deaths_admin2, height = 7, width = 7)

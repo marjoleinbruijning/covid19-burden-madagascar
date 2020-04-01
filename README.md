@@ -21,16 +21,17 @@ Spatial estimates of burden by age cfrs for Africa
       - Then edit the script [R/mada\_1x1.R](R/mada_1x1.R) with the new
         directories & iso code
       - A table of country iso codes is included
-        [here](%22output/iso_codes.csv%22)
+        [here](output/iso_codes.csv)
   - Shapefiles from malariaAtlas using the [R
     package](https://cran.r-project.org/web/packages/malariaAtlas/index.html)
-      - I used rmapshaper (except for admin3 which had issues because of
-        polygon holes)
+      - I used rmapshaper to simplify polygons for easier plotting
+        (except for admin3 which was too big\!)
+      - The continental shapefiles are a bit patchy and you end up with
+        some invalid geoms
 
-## Spatial files and other large files are stored on dropbox
-
-  - [Download
-    here](https://www.dropbox.com/sh/wwxc9wb2xpv5qog/AACSsRjpq4Skesoy0Ijzt2I9a?dl=0)
+**Spatial files and other large files are stored on dropbox\!** -
+[Download
+here](https://www.dropbox.com/sh/wwxc9wb2xpv5qog/AACSsRjpq4Skesoy0Ijzt2I9a?dl=0)
 
 ## Analysis
 
@@ -45,9 +46,10 @@ For both Madagascar @ \~ 1x1 km scale and AFR at \~ 10 km scale:
 ## Key outputs
 
 These data (zipped csv files) with cell\_id corresponding to raster &
-admin codes corresponding to shapefiles - Africa gridded @ 10x10 km:
-[output/afr\_dt.gz](output/afr_dt.gz) - Mada gridded @ 1x1km:
-output/mada\_dt.gz (stored on dropbox)
+admin codes corresponding to shapefiles:
+
+  - Africa gridded @ 10x10 km: [output/afr\_dt.gz](output/afr_dt.gz)
+  - Mada gridded @ 1x1km: output/mada\_dt.gz (stored on dropbox)
 
 The aggregated versions are also included in the output folder (may be
 easier to work with). You can match these to the shapefiles and apply
@@ -62,7 +64,8 @@ in and manipulate otherwise.
 
   - Estimate cfrs per Jess (smooth spline)
 
-  - Assumed infection prop of 0.4 cummulatively
+  - Assumed infection prop of 0.4 cummulatively & asymptomatic
+    proportion is 0.2
 
   - Continent (at grid cell level)
 
