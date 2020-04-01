@@ -17,6 +17,7 @@ library(iterators)
 library(glue)
 library(data.table)
 library(dplyr)
+library(knitr)
 ```
 
 ## Two sources of data from WorldPop
@@ -37,7 +38,7 @@ library(dplyr)
     ```
       -  You will need to have GNU [`parallel`](https://www.gnu.org/software/parallel/)  and [`curl`](https://curl.haxx.se) installed, to use this script.
     - Then edit the script [R/mada_1x1.R](R/mada_1x1.R) with the new directories & iso code
-    - A table of country iso codes is included [here]
+    - A table of country iso codes is included [here]("output/iso_codes.csv")
 
 - Shapefiles from malariaAtlas using the [R package](https://cran.r-project.org/web/packages/malariaAtlas/index.html)
     - I used rmapshaper (except for admin3 which had issues because of polygon holes)
@@ -64,19 +65,35 @@ These data (zipped csv files) with cell_id corresponding to raster &  admin code
 The aggregated versions are also included in the output folder (may be easier to work with).  You can match these to the shapefiles and apply models and plot however! Although mapping to admin units for African continent is very slow. If working with the gridded datasets, I  would recommend using data.table as these are large and can be a pain to read in and manipulate otherwise. 
 
 ## Plotting examples
-
+- Script [here]("R/plotting.R)
 - Continent (at grid cell level)
+```{r}
+include_graphics("figs/afr_deaths_grid.jpeg")
+```
 
-- Continent (at admin level, not all countries have admin3 or even admin2 data in malariaAtlas so would need to download individual country sources)
+- Continent (at admin level, not all countries have admin3 or even admin2 data in malariaAtlas so would need to download individual country sources, right now just using admin 2)
+```{r}
+include_graphics("figs/afr_deaths_admin2.jpeg")
+```
 
-- Country (either pull in by iso code using command line arguments from data.table)
+- Mada grid cell
+```{r}
+include_graphics("figs/mada_deaths_grid.jpeg")
+```
+
+- Mada admin 3
+```{r}
+include_graphics("figs/mada_deaths_admin3.jpeg")
+```
+
+**Right now, the maps are basically just pop maps!**
 
 ## Next steps
 What metric should we look at? Incidence of deaths?
 
-Right now, the maps are basically just pop maps!
+Hospital/health capacity data? [Maina et al.](https://www.nature.com/articles/s41597-019-0142-2)
 
-Hospital/health capacity data?
+What does bed capacity even mean in these settings?
 
 - Better way to get estimate of cfr for age bins? Particularly for the higher binned age groups (i.e. 65 +, 80 +)
 - Check which source is more accurate against pop totals from census data 
