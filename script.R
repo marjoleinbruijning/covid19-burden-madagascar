@@ -15,16 +15,9 @@ require(rgdal)
 # Load demographic data (combining all ages) (data from: https://www.worldpop.org/geodata/summary?id=6396)
 mat <- raster('Data/mdg_ppp_2020.tif')
 
-# Create empty raster with decreased resolution (decrReso times)
-decrReso <- 20
-mat2 <- raster(nrow=round(nrow(mat)/decrReso),ncol=round(ncol(mat)/decrReso))
-
-# Assign same properties
-crs(mat2) <- crs(mat) # coordinate reference system
-extent(mat2) <- extent(mat) # ranges
-
 # Create new map with decreased resolution
-mat <- resample(mat,mat2)
+decrReso <- 20
+mat <- aggregate(mat,fact=decrReso,fun=sum)
 
 # Plot results
 plot(mat)
@@ -43,19 +36,11 @@ allfiles <- as.list(list.files('Data/AgeSpecific',full.names=TRUE))
 dat <- lapply(allfiles,raster)
 
 # Decrease resolution (takes a while)
+decrReso <- 10
 dat <- lapply (dat,function(x) {
-
-  # Create empty raster with decreased resolution (decrReso times)
-  decrReso <- 100
-  mat2 <- raster(nrow=round(nrow(x)/decrReso),ncol=round(ncol(x)/decrReso))
-
-  # Assign same properties
-  crs(mat2) <- crs(x) # coordinate reference system
-  extent(mat2) <- extent(x) # ranges
-
-  # Create new map with decreased resolution
-  return(resample(x,mat2))
-
+  mat2 <- aggregate(x,fact=decrReso,fun=sum)
+  cat('Done \n')
+  return(mat2)
 } )
 
 # get age classes from file names
