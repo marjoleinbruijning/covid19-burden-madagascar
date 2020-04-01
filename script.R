@@ -32,15 +32,16 @@ plot(mat * pinf * pmort)
 ################################################################################
 ##### Including age structure
 # load all datas (all datasets from https://www.worldpop.org/geodata/summary?id=16870)
+# So far only including women!
 allfiles <- as.list(list.files('Data/AgeSpecific',full.names=TRUE))
 dat <- lapply(allfiles,raster)
 
 # Decrease resolution (takes a while)
 decrReso <- 10
 dat <- lapply (dat,function(x) {
-  mat2 <- aggregate(x,fact=decrReso,fun=sum)
+  mat <- aggregate(x,fact=decrReso,fun=sum)
   cat('Done \n')
-  return(mat2)
+  return(mat)
 } )
 
 # get age classes from file names
@@ -54,9 +55,20 @@ pmort <- matrix(NA,nrow=81,ncol=2)
 colnames(pmort) <- c('Age','Mortality')
 pmort[,1] <- 0:80
 pmort[,2] <- 0.01 + pmort[,1]/100
+pmortInc <- pmort[match(ageclasses,pmort[,1]),2] # age-specific mortality per file
 
-# age-specific mortality per file
-pmortInc <- pmort[match(ageclasses,pmort[,1]),2]
+# Numbers from: https://www.imperial.ac.uk/media/imperial-college/medicine/sph/ide/gida-fellowships/Imperial-College-COVID19-NPI-modelling-16-03-2020.pdf
+# Table 1, column Infection Fatality Ratio
+pmort <- matrix(ncol=3,nrow=9)
+colnames(pmort) <- c('minage','maxage','fatality')
+pmort[,1] <- seq(0,80,10)
+pmort[,2] <- c(seq(9,80,10),120)
+pmort[,3] <- c(0.00002,0.00006,0.0003,0.0008,0.0015,0.006,0.022,0.051,0.093)
+# age-specific mortality per map
+pmortInc <- sapply(as.numeric(ageclasses),function(x)
+                   pmort[data.table::between(x,pmort[,1],pmort[,2]),3])
+names(pmortInc) <- as.numeric(ageclasses)
+
 
 # Infection probability
 pinf <- 0.4
