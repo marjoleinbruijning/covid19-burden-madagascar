@@ -7,8 +7,8 @@ This project is aimed at projecting and mapping the expected Covid-19 burden in 
 
 ---
 ## Table of Contents
-* [Data sources](#data)
 * [Analysis](#analysis)
+  * [Data sources](#data)
   * [Calculations](#calculations)
   * [Output Files](#output-files)
   * [Code](#code)
@@ -17,8 +17,9 @@ This project is aimed at projecting and mapping the expected Covid-19 burden in 
 * [Session Info](#session-info)
 
 ---
+## Analysis
 
-## Data
+### Data
 We use two sources of data from WorldPop:
 
   - [Africa Continental (@ 1x1 km
@@ -52,8 +53,6 @@ here](https://www.dropbox.com/sh/wwxc9wb2xpv5qog/AACSsRjpq4Skesoy0Ijzt2I9a?dl=0)
 
 
 ---
-
-## Analysis
 
 ### Calculations
 For both Madagascar @ \~ 1x1 km scale and AFR at \~ 10 km scale:
