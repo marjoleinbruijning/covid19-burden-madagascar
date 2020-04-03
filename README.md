@@ -10,10 +10,10 @@ This project is aimed at projecting and mapping the expected Covid-19 burden in 
 * [Data sources](#data)
 * [Analysis](#analysis)
   * [Calculations](#calculations)
-  * [Output Files](#output files)
+  * [Output Files](#output-files)
   * [Code](#code)
 * [Preliminary results](#results)
-* [Next Steps](#next steps)
+* [Next Steps](#next-steps)
 * [Session Info](#session-info)
 
 ---
