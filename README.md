@@ -8,9 +8,13 @@ This project is aimed at projecting and mapping the expected Covid-19 burden in 
 ---
 ## Table of Contents
 * [Data sources](#data)
-* [Methods](#methods)
+* [Analysis](#analysis)
+  * [Calculations](#calculations)
+  * [Output Files](#output files)
+  * [Code](#code)
 * [Preliminary results](#results)
-* [Code](#code)
+* [Next Steps](#next steps)
+* [Session Info](#session-info)
 
 ---
 
@@ -46,10 +50,12 @@ We use two sources of data from WorldPop:
 [Download
 here](https://www.dropbox.com/sh/wwxc9wb2xpv5qog/AACSsRjpq4Skesoy0Ijzt2I9a?dl=0)
 
+
 ---
 
 ## Analysis
 
+### Calculations
 For both Madagascar @ \~ 1x1 km scale and AFR at \~ 10 km scale:
 
 1.  Aggregate rasters up to make them easier to work with
@@ -58,9 +64,10 @@ For both Madagascar @ \~ 1x1 km scale and AFR at \~ 10 km scale:
     MalariaAtlas shapefiles
 4.  Apply cfrs across age groups
 
+
 ---
 
-## Key outputs
+### Output files
 
 These data (zipped csv files) with cell\_id corresponding to raster &
 admin codes corresponding to shapefiles:
@@ -75,7 +82,13 @@ continent is very slow. If working with the gridded datasets, I would
 recommend using data.table as these are large and can be a pain to read
 in and manipulate otherwise.
 
-## Plotting examples
+---
+
+### Code
+
+
+--- 
+## Preliminary Results
 
   - Script [here](R/plotting.R)
 
@@ -128,6 +141,8 @@ include_graphics("figs/mada_deaths_admin3.jpeg")
 
 **Right now, the maps are basically just pop maps\!**
 
+---
+
 ## Next steps
 
 What metric should we look at? Incidence of deaths?
@@ -146,6 +161,9 @@ What does bed capacity even mean in these settings?
       - I think the older data may actually be more accurate\!
   - Matching to admin units is trickier than gridded cells because some
     people inevitably go missing…
+
+
+---
 
 ## Session Info
 
