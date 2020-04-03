@@ -10,9 +10,9 @@ setwd('/home/mbruijning/Dropbox/Work/Manuscripts/Covid19Africa/')
 require(raster)
 require(rgdal)
 
-
 ################################################################################
 # Load data
+## Maybe somehow incorporate this code into africa_10x10.R code, or replace parts?
 allfiles <- as.list(list.files('wp_data/africa_10km_2020',full.names=TRUE))
 
 ## Use Mal's maps and combine into one brick file
@@ -40,9 +40,9 @@ writeRaster(dat, filename='demoMapAfrica2020.tif', format="GTiff",
 ########################################################
 ## Run analysis and create plots 
 ## (functions/calculations used for Shinyapp)
+######## Put all of this in a separate file, which we can load to run the subsequent analysis / plots?
 ########################################################
 
-#########################
 ## Load data and input
 dat <- brick('demoMapAfrica2020.tif')
 admin0 <- readOGR("shapefiles/country.shp")
@@ -78,7 +78,10 @@ countries <- c("All","Algeria", "Angola", "Benin", "Botswana", "Burkina Faso", "
                    "Tanzania", "Togo", "Tunisia", "Uganda", "Western Sahara", "Zambia",
                    "Zimbabwe")
 
+
+
 #########################
+## Maybe we don't need to match this code fully, but at least make sure that we calculate things in the same way?
 ## Do calculations
 ## User input
 input <- list()
