@@ -2,7 +2,20 @@ Spatial estimates of burden by age cfrs for Africa
 ================
 4/1/2020
 
-## Two sources of data from WorldPop
+---
+This project is aimed at projecting and mapping the expected Covid-19 burden in Africa, based on population age distributions. For a similar project focusing on the USA, see <a target="_blank" href="https://github.com/ianfmiller/covid19-burden-mapping">this page</a>. For an interactive tool of our project, see <a target="_blank" href="https://marjoleinbruijning.shinyapps.io/covid19-burden-africa/">here</a>.
+
+---
+## Table of Contents
+* [Data sources](#data)
+* [Methods](#methods)
+* [Preliminary results](#results)
+* [Code](#code)
+
+---
+
+## Data
+We use two sources of data from WorldPop:
 
   - [Africa Continental (@ 1x1 km
     distribution)](https://www.worldpop.org/geodata/summary?id=1276)
@@ -33,6 +46,8 @@ Spatial estimates of burden by age cfrs for Africa
 [Download
 here](https://www.dropbox.com/sh/wwxc9wb2xpv5qog/AACSsRjpq4Skesoy0Ijzt2I9a?dl=0)
 
+---
+
 ## Analysis
 
 For both Madagascar @ \~ 1x1 km scale and AFR at \~ 10 km scale:
@@ -42,6 +57,8 @@ For both Madagascar @ \~ 1x1 km scale and AFR at \~ 10 km scale:
 3.  Match to admin codes (country iso code, admin 1 - 3) from
     MalariaAtlas shapefiles
 4.  Apply cfrs across age groups
+
+---
 
 ## Key outputs
 
