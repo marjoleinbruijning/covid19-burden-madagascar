@@ -45,7 +45,7 @@ colnames(out_mat) <- ages
 fwrite(out_mat, "output/temp_out_afr.gz")
 
 # Read in shapefiles --------------------------------------------------------------------------
-raster_base <- raster(glue("wp_data/africa_10km_2020/afr_f_A0004_2020_10km.tif"))
+raster_base <- raster("wp_data/africa_10km_2020/afr_f_A0004_2020_10km.tif")
 values(raster_base) <- 1:ncell(raster_base)
 
 # Admin 3
@@ -70,6 +70,32 @@ fwrite(afr_admin2, "output/afr_admin2.csv")
 afr_admin3 <- afr_dt[, lapply(.SD, sum, na.rm = TRUE), .SDcols = 6:ncol(afr_dt), 
                        by = c("admin3_code")]
 fwrite(afr_admin3, "output/afr_admin3.csv")
+
+# Make into raster brick per Marjolein -------------------------------------------------------
+# Load data
+allfiles <- as.list(list.files('wp_data/africa_10km_2020',full.names=TRUE))
+
+# Combine into one brick file
+dat <- lapply(allfiles, raster)
+namess <- lapply(dat, names) # file names
+uniquenames <- substr(namess, 6, 21) # exl gender
+
+# Sum M + F
+datsubs <- list()
+for (i in 1:14) {
+  datsubs[[i]] <- dat[[i]] + dat[[which(uniquenames == uniquenames[i])[2]]]
+}
+
+agelower <- substr(namess[1:14], 8, 9)
+ageupper <- substr(namess[1:14], 10, 11)
+ageclasses <- as.numeric(agelower) + 2
+names(datsubs) <- paste(agelower, ageupper)
+
+dat <- brick(datsubs)
+
+# save output
+writeRaster(dat, filename = 'output/demoMapAfrica2020.tif', format = "GTiff",
+            overwrite = TRUE, options = c("INTERLEAVE=BAND", "COMPRESS=LZW"))
 
 # Close out
 stopCluster(cl)
