@@ -1,0 +1,184 @@
+---
+title: "Estimating the burden of COVID-19 in African countries"
+output: 
+  flexdashboard::flex_dashboard:
+    vertical_layout: fill
+    source_code: embed
+    theme: simplex
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+
+# Load Packages
+library(highcharter)
+library(htmltools)
+library(rio)
+library(stringr)
+library(DT)
+library(dplyr)
+library(jsonlite)
+library(data.table)
+
+```
+
+
+```{r ests, include = FALSE}
+# read in data
+country <- fromJSON("output/geojson/country.geojson", simplifyVector = FALSE)
+admin <-  fromJSON("output/geojson/admin_min.geojson", simplifyVector = FALSE)
+country_dt <- fread("output/country_dt.csv")
+admin_dt <- fread("output/admin_min_dt.csv")
+
+# get cfrs
+# Per Jess
+age.upper <- c(9, 19, 29, 39, 49, 59, 69, 79, 89)
+N.cases <- c(416, 549, 3619, 7600, 8571, 10008, 8583, 3918, 1408)
+N.deaths <- c(0, 1, 7, 18, 38, 130, 309, 312, 208)
+CFR <- N.deaths/N.cases
+fit.cfr <- smooth.spline(age.upper - 4.5, (N.deaths/ N.cases)) # mid-point of age bracket & cases/deaths
+
+# take midpoint of our age brackets for afr data
+age_lower <- seq(0, 65, by = 5)
+age_upper <- age_lower + 4 # keep age upper at 69 (conservative estimates of mortality)
+mid_pt <- (age_lower + age_upper)/2
+cfr <- pmax(predict(fit.cfr, mid_pt)$y, 0)
+names(cfr) <- c("A0004", "A0509", "A1014", "A1519", "A2024", "A2529", "A3034", "A3539", "A4044",
+                "A4549", "A5054", "A5559", "A6064", "A65PL") # names should match colnames!
+p_infected <- 0.3 # 30% cummulative infections
+
+# Relative symptomatic by age (taking mid_pt of age bins)
+cm_interpolate_cos <- function(x, x0, y0, x1, y1) {
+  ifelse(x < x0, y0, 
+         ifelse(x > x1, y1, y0 + (y1 - y0) * (0.5 - 0.5 * cos(pi * (x - x0) / (x1 - x0)))))
+}
+symp.pars <- data.frame("age_y" = 14, "age_m" = 55, "age_o" = 64, "symp_y" = 0.056,
+                      "symp_m"= 0.49, "symp_o"= 0.74)
+young  = cm_interpolate_cos(mid_pt, symp.pars$age_y, 1, symp.pars$age_m, 0);
+old    = cm_interpolate_cos(mid_pt, symp.pars$age_m, 0, symp.pars$age_o, 1);
+middle = 1 - young - old;
+rel.symp <- young * symp.pars$symp_y + middle * symp.pars$symp_m + old * symp.pars$symp_o
+names(rel.symp) <- c("A0004", "A0509", "A1014", "A1519", "A2024", "A2529", "A3034", "A3539", 
+                     "A4044", "A4549", "A5054", "A5559", "A6064", "A65PL") # names should match colnames!
+
+# apply to data @ country/admin level
+admin_dt[, (paste0("deaths_", names(cfr))) :=  Map("*", .SD, cfr*p_infected*rel.symp), 
+                           .SDcols = names(cfr)]
+admin_dt$deaths_total <- rowSums(admin_dt[, paste0("deaths_", names(cfr)), with = FALSE], 
+                                   na.rm = TRUE)
+admin_dt$prop_ov65 <- admin_dt$A65PL/admin_dt$pop
+admin_dt$inc_per100k <- admin_dt$deaths_total/admin_dt$pop*1e5
+
+# country level
+country_dt[, (paste0("deaths_", names(cfr))) :=  Map("*", .SD, cfr*p_infected*rel.symp), 
+                           .SDcols = names(cfr)]
+country_dt$deaths_total <- rowSums(country_dt[, paste0("deaths_", names(cfr)), with = FALSE], 
+                                   na.rm = TRUE)
+country_dt$prop_ov65 <- country_dt$A65PL/country_dt$pop
+country_dt$inc_per100k <- country_dt$deaths_total/country_dt$pop*1e5
+
+```
+
+
+Sidebar {.sidebar}
+======================================================================
+Here we'll put info & links to other things...
+
+Mapping burden
+======================================================================
+
+Row {{data-height=1000}}
+-----------------------------------------------------------------------
+
+## Burden mapped to country & finest scale administrative level available
+
+``` {r, include = FALSE}
+
+# create index vector to subset countries by admin level
+country_dt$iso_id <- as.numeric(factor(country_dt$iso))
+country_dt$value <- country_dt$inc_per100k
+admin_dt$iso_id <- country_dt$iso_id[match(admin_dt$iso, country_dt$iso)]
+admin_dt$value <- admin_dt$inc_per100k
+
+cn_st_index <- unlist(lapply(admin$features, function (x){x$properties$iso}))
+cn_st_index <- country_dt$iso_id[match(cn_st_index, country_dt$iso)]
+
+# keep only what you need
+admin_dt <- select(admin_dt, iso, pop, prop_ov65, value, deaths_total, shape_id, iso_id)
+
+build_series <- function(subnatl) {
+  
+  # subset uscountygeojson
+  admin.subset <- admin
+  admin.subset$features <- admin$features[which(cn_st_index == subnatl)]
+  
+  # subset county data
+  ds.cn <- filter(admin_dt, iso_id == subnatl) %>%
+    list_parse()
+  
+  # build series
+  list(
+    id = subnatl,
+    mapData = admin.subset,
+    data = ds.cn,
+    joinBy = c('id_match', "shape_id"),
+    dataLabels = list(enabled = TRUE, format = '{point.name}'),
+    tooltip = list(
+      useHTML = TRUE,
+      headerFormat = "<p>",
+      pointFormat = paste0("<b>{point.iso}, {point.shape_id}</b><br>",
+                           "<b style=\"color:#1874CD\"> Deaths:</b> {point.deaths_total:.3f}<br>",
+                           "<b style=\"color:red\"> Prop over 65:</b> {point.prop_ov65:.3f}<br>"
+      ),
+      footerFormat = "</p>")
+  )
+}
+
+# Make the graph
+# keep only neccesary data!
+country_dt %>% 
+  select(iso, pop, prop_ov65, iso_id, value, deaths_total) %>%
+  rename(drilldown = iso_id) -> dt.st
+ds.st <- list_parse(dt.st)
+
+# create drilldown series
+series.list <- lapply(as.numeric(dt.st$drilldown), build_series)
+
+```
+
+```{r}
+  # tooltip for country map has to be coded separately from tooltip for county
+  highchart(type = 'map') %>%
+    hc_add_series(
+      mapData = country, data = ds.st, joinBy = c("iso", "iso"),
+      borderWidth = 0.8, dataLabels = list(enabled = FALSE, format = '{point.properties.iso}'),
+      tooltip = list( 
+        useHTML = TRUE,
+        headerFormat = "<p>",
+        pointFormat = paste0("<b>{point.iso}</b><br>",
+                             "<b style=\"color:#1874CD\"> Deaths:</b> {point.deaths_total:.3f}<br>",
+                             "<b style=\"color:red\"> Prop over 65:</b> {point.prop_ov65:.3f}<br>"
+        ),
+        footerFormat = "</p>"
+      )) %>%
+    hc_colorAxis(min = 0, max = 300, minColor = '#efecf3', maxColor = '#990041') %>%    
+    hc_legend(enabled = TRUE) %>%
+    hc_exporting(enabled = TRUE)%>%
+    hc_drilldown(
+      series = series.list,
+      activeDataLabelStyle = list(
+        color =  '#FFFFFF',
+        textDecoration = 'none'
+      )
+    ) %>%
+    hc_mapNavigation(enabled = TRUE) %>%
+    browsable()
+```
+
+Row 
+-----------------------------------------------------------------------
+
+Methods
+======================================================================
+
+
