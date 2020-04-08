@@ -7,6 +7,7 @@ library(ggplot2)
 library(rgdal)
 library(data.table)
 library(dplyr)
+library(cowplot)
 
 # Calculating cfrs ----------------------------------------------------------------------------
 # Per Jess
@@ -17,6 +18,33 @@ CFR <- N.deaths/N.cases
 fit.cfr <- smooth.spline(age.upper - 4.5, (N.deaths/ N.cases)) # mid-point of age bracket & cases/deaths
 p_infected <- 0.4 # 40% cummulative infections
 p_symptomatic <- 0.8
+
+# Relative symptomatic by age
+cm_interpolate_cos <- function(x, x0, y0, x1, y1) {
+  ifelse(x < x0, y0, 
+         ifelse(x > x1, y1, y0 + (y1 - y0) * (0.5 - 0.5 * cos(pi * (x - x0) / (x1 - x0)))))
+}
+symp.pars <- data.frame("age_y" = 14, "age_m" = 55, "age_o" = 64, "symp_y" = 0.056,
+                      "symp_m"= 0.49, "symp_o"= 0.74)
+ages <- seq(0, 89, by = 1)
+young  = cm_interpolate_cos(ages, symp.pars$age_y, 1, symp.pars$age_m, 0);
+old    = cm_interpolate_cos(ages, symp.pars$age_m, 0, symp.pars$age_o, 1);
+middle = 1 - young - old;
+
+rel.symp <- young * symp.pars$symp_y + middle * symp.pars$symp_m + old * symp.pars$symp_o
+cfr <- pmax(predict(fit.cfr, ages)$y, 0)
+ifr <- cfr*rel.symp
+plot_cfr <- data.frame(age = c(ages, ages), 
+                       type = c(rep("cfr", length(ages)), rep("ifr", length(ages))), 
+                       val = c(cfr, ifr))
+
+ggplot(data = plot_cfr, aes(x = age, y = val, color = type)) +
+  geom_line() +
+  scale_color_manual(values = c("darkred", "red"), 
+                     labels = c("Case fatality rate", "Infection fatality rate"),
+                     name = "Type") +
+  labs(x = "Age (years)", y = "Estimate") +
+  theme_half_open()
 
 # Madagascar ----------------------------------------------------------------------------------
 # read in data
@@ -29,22 +57,28 @@ age_upper[age_upper == 81] <- 89 # set the last age bracket to be 80 - 89
 mid_pt <- (age_upper + age_lower)/2
 cfr <- pmax(predict(fit.cfr, mid_pt)$y, 0)
 names(cfr) <- age_lower
-
+young <- cm_interpolate_cos(mid_pt, symp.pars$age_y, 1, symp.pars$age_m, 0);
+old <- cm_interpolate_cos(mid_pt, symp.pars$age_m, 0, symp.pars$age_o, 1);
+middle <- 1 - young - old;
+rel.symp <- young * symp.pars$symp_y + middle * symp.pars$symp_m + old * symp.pars$symp_o
+ifr <- cfr*rel.symp
+names(ifr) <- age_lower
+  
 # set order by cell_id for matching to raster
 setorder(mada_grid, cell_id)
 
 # sanity checks
-check_inf <- mada_grid[, Map("*", .SD, cfr*p_infected*p_symptomatic), .SDcols = as.character(age_lower)]
+check_inf <- mada_grid[, Map("*", .SD, ifr*p_infected), .SDcols = as.character(age_lower)]
 check_pop <- mada_grid[, as.character(age_lower), with = FALSE]
 plot(colSums(check_inf, na.rm = TRUE)/colSums(check_pop, na.rm = TRUE))
-points(cfr*p_infected*p_symptomatic, col = "blue") 
+points(ifr*p_infected, col = "blue") 
 sum(colSums(check_pop, na.rm = TRUE)) # ~ 27 million people
 order_check <- check_pop$`0` == mada_grid$`0` # spot check id order stayed the same
 length(order_check[!is.na(order_check) & order_check == FALSE]) # should be zero
 
 # Plotting deaths
 mada_deaths <- copy(mada_grid)
-mada_deaths <- mada_deaths[, (as.character(age_lower)) :=  Map("*", .SD, cfr*p_infected*p_symptomatic), 
+mada_deaths <- mada_deaths[, (as.character(age_lower)) :=  Map("*", .SD, ifr*p_infected), 
                            .SDcols = as.character(age_lower)]
 mada_deaths$deaths_total <- rowSums(mada_deaths[, as.character(age_lower), with = FALSE], na.rm = TRUE)
 
@@ -62,7 +96,7 @@ raster <- ggplot() +
   geom_raster(data = mada_base, aes(x = x, y = y, 
                                        fill = deaths_total)) + 
   scale_fill_distiller(na.value = NA, palette = "Reds", direction = 1, 
-                       trans = "sqrt", name = "Estimated burden") +
+                       trans = "sqrt", name = "Estimated burden \n (at 1 km^2)") +
   coord_quickmap()
 ggsave("figs/mada_deaths_grid.jpeg", raster, height = 7, width = 5)
 

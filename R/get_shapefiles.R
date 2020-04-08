@@ -29,6 +29,17 @@ writeOGR(admin1, dsn = "shapefiles", layer = "admin1",
 admin2 <- getShp(ISO = metadata$ISO_3, admin_level = "admin2")
 admin2@data <- data.frame(apply(admin2@data, 2, iconv, from ='utf-8', to ='ascii', sub=''))
 admin2 <- ms_simplify(admin2, keep_shapes = TRUE, sys = TRUE)
+admin2@data %>%
+  mutate(id_1 = case_when(is.na(type_1) ~ as.character(id_0), 
+                          !is.na(type_1) ~ as.character(id_1)), 
+         id_2 = case_when(is.na(type_2) ~ as.character(id_1), 
+                          !is.na(type_2) ~ as.character(id_2)),
+         min_admin = case_when(is.na(type_1) ~ "Admin 0",
+                               is.na(type_2) ~ "Admin 1",
+                               !is.na(type_2) ~ "Admin 2"),
+         min_admin_type = case_when(is.na(type_1) ~ as.character(type_0),
+                                    is.na(type_2) ~ as.character(type_1),
+                                    !is.na(type_2) ~ as.character(type_2))) -> admin2@data
 writeOGR(admin2, dsn = "shapefiles", layer = "admin2", 
          driver = "ESRI Shapefile", overwrite_layer = TRUE)
 
@@ -42,7 +53,7 @@ admin3 <- ms_simplify(admin3, keep_shapes = TRUE, sys = TRUE)
 writeOGR(admin3, dsn = "shapefiles", layer = "admin3", 
          driver = "ESRI Shapefile", overwrite_layer = TRUE)
 
-# Master shapefile 
+# Master shapefile (finest admin unit available)
 admin3@data %>%
   mutate(id_1 = case_when(is.na(type_1) ~ as.character(id_0), 
                      !is.na(type_1) ~ as.character(id_1)), 

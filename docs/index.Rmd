@@ -3,6 +3,7 @@ title: "Estimating the burden of COVID-19 in African countries"
 output: 
   flexdashboard::flex_dashboard:
     vertical_layout: fill
+    orientation: rows
     source_code: embed
     theme: simplex
 ---
@@ -19,6 +20,7 @@ library(DT)
 library(dplyr)
 library(jsonlite)
 library(data.table)
+library(leaflet)
 
 ```
 
@@ -26,9 +28,9 @@ library(data.table)
 ```{r ests, include = FALSE}
 # read in data
 country <- fromJSON("output/geojson/country.geojson", simplifyVector = FALSE)
-admin <-  fromJSON("output/geojson/admin_min.geojson", simplifyVector = FALSE)
+admin <-  fromJSON("output/geojson/admin2.geojson", simplifyVector = FALSE)
 country_dt <- fread("output/country_dt.csv")
-admin_dt <- fread("output/admin_min_dt.csv")
+admin_dt <- fread("output/admin2_dt.csv")
 
 # get cfrs
 # Per Jess
@@ -90,7 +92,7 @@ Mapping burden
 Row {{data-height=1000}}
 -----------------------------------------------------------------------
 
-## Burden mapped to country & finest scale administrative level available
+### Burden mapped to country & Admin 2 level (where available)
 
 ``` {r, include = FALSE}
 
@@ -104,7 +106,8 @@ cn_st_index <- unlist(lapply(admin$features, function (x){x$properties$iso}))
 cn_st_index <- country_dt$iso_id[match(cn_st_index, country_dt$iso)]
 
 # keep only what you need
-admin_dt <- select(admin_dt, iso, pop, prop_ov65, value, deaths_total, shape_id, iso_id)
+admin_dt <- select(admin_dt, iso, country, admin_name, admin_type, 
+                   pseektrthc10x10, pop, prop_ov65, value, deaths_total, id_match = shape_id, iso_id)
 
 build_series <- function(subnatl) {
   
@@ -121,15 +124,17 @@ build_series <- function(subnatl) {
     id = subnatl,
     mapData = admin.subset,
     data = ds.cn,
-    joinBy = c('id_match', "shape_id"),
+    joinBy = c('id_match', 'id_match'),
     dataLabels = list(enabled = TRUE, format = '{point.name}'),
     tooltip = list(
       useHTML = TRUE,
       headerFormat = "<p>",
-      pointFormat = paste0("<b>{point.iso}, {point.shape_id}</b><br>",
-                           "<b style=\"color:#1874CD\"> Deaths:</b> {point.deaths_total:.3f}<br>",
-                           "<b style=\"color:red\"> Prop over 65:</b> {point.prop_ov65:.3f}<br>"
-      ),
+      pointFormat = paste0("<b>{point.country}</b><br>",
+                           "</b>{point.admin_name} ({point.admin_type})</b><br>",
+                           "<b style=\"color:red\"> Pop :</b> {point.pop:.0f}<br>",
+                           "<b style=\"color:red\"> Prop pop over 65:</b> {point.prop_ov65:.3f}<br>",
+                           "<b style=\"color:red\"> Deaths (total #):</b> {point.deaths_total:.0f}<br>",
+                           "<b style=\"color:red\"> Estimated reporting of fevers to health center:</b> {point.pseektrthc10x10:.2f}<br>"),
       footerFormat = "</p>")
   )
 }
@@ -137,8 +142,9 @@ build_series <- function(subnatl) {
 # Make the graph
 # keep only neccesary data!
 country_dt %>% 
-  select(iso, pop, prop_ov65, iso_id, value, deaths_total) %>%
-  rename(drilldown = iso_id) -> dt.st
+  select(iso, country, pop, prop_ov65, iso_id, value, deaths_total, pseektrthc10x10) %>%
+  rename(drilldown = iso_id) %>%
+  mutate(pop_m = pop/1e6) -> dt.st
 ds.st <- list_parse(dt.st)
 
 # create drilldown series
@@ -148,6 +154,9 @@ series.list <- lapply(as.numeric(dt.st$drilldown), build_series)
 
 ```{r}
   # tooltip for country map has to be coded separately from tooltip for county
+  # max inc
+  max_inc <- max(max(country_dt$value, na.rm = TRUE), max(admin_dt$value, na.rm = TRUE))
+                 
   highchart(type = 'map') %>%
     hc_add_series(
       mapData = country, data = ds.st, joinBy = c("iso", "iso"),
@@ -155,14 +164,18 @@ series.list <- lapply(as.numeric(dt.st$drilldown), build_series)
       tooltip = list( 
         useHTML = TRUE,
         headerFormat = "<p>",
-        pointFormat = paste0("<b>{point.iso}</b><br>",
-                             "<b style=\"color:#1874CD\"> Deaths:</b> {point.deaths_total:.3f}<br>",
-                             "<b style=\"color:red\"> Prop over 65:</b> {point.prop_ov65:.3f}<br>"
-        ),
+        pointFormat = paste0("<b>{point.country}</b><br>",
+                             "<b style=\"color:red\"> Pop :</b> {point.pop_m:.3f} million<br>",
+                           "<b style=\"color:red\"> Prop pop over 65:</b> {point.prop_ov65:.3f}<br>",
+                           "<b style=\"color:red\"> Deaths (total #):</b> {point.deaths_total:.0f}<br>",
+                           "<b style=\"color:red\"> Estimated reporting of fevers to health center:</b> {point.pseektrthc10x10:.3f}<br>"
+                           ),
         footerFormat = "</p>"
       )) %>%
-    hc_colorAxis(min = 0, max = 300, minColor = '#efecf3', maxColor = '#990041') %>%    
-    hc_legend(enabled = TRUE) %>%
+    hc_colorAxis(min = 0, max = max_inc, 
+                 stops = color_stops(10, c('#fff5f0', '#fee0d2', '#fcbba1', '#fc9272', '#fb6a4a', 
+                                           '#ef3b2c', '#cb181d', '#a50f15', '#67000d'))) %>%    
+    hc_legend(enabled = TRUE, title = "Incidence of deaths per 100k persons") %>%
     hc_exporting(enabled = TRUE)%>%
     hc_drilldown(
       series = series.list,
@@ -175,10 +188,31 @@ series.list <- lapply(as.numeric(dt.st$drilldown), build_series)
     browsable()
 ```
 
-Row 
------------------------------------------------------------------------
-
 Methods
 ======================================================================
 
+Coming soon!
 
+<style>
+
+#sidebar.section.sidebar {
+
+  background-color: white; 
+  font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+
+}
+
+.js-irs-0 .irs-bar {
+border-top-color: #d01010;
+border-bottom-color: #d01010;
+} 
+
+.js-irs-0 .irs-bar-edge {
+border-color: #d01010;
+}
+
+.js-irs-0 .irs-single, .js-irs-0 .irs-bar-edge, .js-irs-0 .irs-bar {
+background: #a00;
+}
+
+</style>
