@@ -84,7 +84,16 @@ country_dt$inc_per100k <- country_dt$deaths_total/country_dt$pop*1e5
 
 Sidebar {.sidebar}
 ======================================================================
-Here we'll put info & links to other things...
+The goal of this project is to map the potential burden of COVID-19 in African countries. Currently we are focusing on demography, but hope to incorporate other factors such as healthcare capacity.
+
+A summary of our approach is described in the __Methods__ tab. We use demographic data from [WorldPop](https://www.worldpop.org/geodata/summary?id=1276), administrative data from The Malaria Atlas Project (https://malariaatlas.org) accessed through the R package [`malariaAtlas`](https://cran.r-project.org/web/packages/malariaAtlas/index.html). We also have summarized data from [Alegana et al] on probability of seeking treatment and travel times to health facilities. Download these data and the associated metadata here. We take data from Verity et al. & also assume cummulative infection rates.
+
+
+To explore these assumptions, check out our shiny app. [here](https://marjoleinbruijning.shinyapps.io/covid19-burden-africa/).
+
+This project is an offshoot of this work by [Miller et al](https://github.com/ianfmiller/covid19-burden-mapping) mapping burden and hospital capacity in the US.
+
+All code & data are available [here].
 
 Mapping burden
 ======================================================================
@@ -94,103 +103,66 @@ Row {{data-height=1000}}
 
 ### Burden mapped to country & Admin 2 level (where available)
 
-``` {r, include = FALSE}
-
-# create index vector to subset countries by admin level
-country_dt$iso_id <- as.numeric(factor(country_dt$iso))
-country_dt$value <- country_dt$inc_per100k
-admin_dt$iso_id <- country_dt$iso_id[match(admin_dt$iso, country_dt$iso)]
-admin_dt$value <- admin_dt$inc_per100k
-
-cn_st_index <- unlist(lapply(admin$features, function (x){x$properties$iso}))
-cn_st_index <- country_dt$iso_id[match(cn_st_index, country_dt$iso)]
-
-# keep only what you need
-admin_dt <- select(admin_dt, iso, country, admin_name, admin_type, 
-                   pseektrthc10x10, pop, prop_ov65, value, deaths_total, id_match = shape_id, iso_id)
-
-build_series <- function(subnatl) {
-  
-  # subset uscountygeojson
-  admin.subset <- admin
-  admin.subset$features <- admin$features[which(cn_st_index == subnatl)]
-  
-  # subset county data
-  ds.cn <- filter(admin_dt, iso_id == subnatl) %>%
-    list_parse()
-  
-  # build series
-  list(
-    id = subnatl,
-    mapData = admin.subset,
-    data = ds.cn,
-    joinBy = c('id_match', 'id_match'),
-    dataLabels = list(enabled = TRUE, format = '{point.name}'),
-    tooltip = list(
-      useHTML = TRUE,
-      headerFormat = "<p>",
-      pointFormat = paste0("<b>{point.country}</b><br>",
-                           "</b>{point.admin_name} ({point.admin_type})</b><br>",
-                           "<b style=\"color:red\"> Pop :</b> {point.pop:.0f}<br>",
-                           "<b style=\"color:red\"> Prop pop over 65:</b> {point.prop_ov65:.3f}<br>",
-                           "<b style=\"color:red\"> Deaths (total #):</b> {point.deaths_total:.0f}<br>",
-                           "<b style=\"color:red\"> Estimated reporting of fevers to health center:</b> {point.pseektrthc10x10:.2f}<br>"),
-      footerFormat = "</p>")
-  )
-}
-
-# Make the graph
-# keep only neccesary data!
-country_dt %>% 
-  select(iso, country, pop, prop_ov65, iso_id, value, deaths_total, pseektrthc10x10) %>%
-  rename(drilldown = iso_id) %>%
-  mutate(pop_m = pop/1e6) -> dt.st
-ds.st <- list_parse(dt.st)
-
-# create drilldown series
-series.list <- lapply(as.numeric(dt.st$drilldown), build_series)
-
-```
-
 ```{r}
-  # tooltip for country map has to be coded separately from tooltip for county
-  # max inc
-  max_inc <- max(max(country_dt$value, na.rm = TRUE), max(admin_dt$value, na.rm = TRUE))
-                 
-  highchart(type = 'map') %>%
-    hc_add_series(
-      mapData = country, data = ds.st, joinBy = c("iso", "iso"),
-      borderWidth = 0.8, dataLabels = list(enabled = FALSE, format = '{point.properties.iso}'),
-      tooltip = list( 
-        useHTML = TRUE,
-        headerFormat = "<p>",
-        pointFormat = paste0("<b>{point.country}</b><br>",
-                             "<b style=\"color:red\"> Pop :</b> {point.pop_m:.3f} million<br>",
-                           "<b style=\"color:red\"> Prop pop over 65:</b> {point.prop_ov65:.3f}<br>",
-                           "<b style=\"color:red\"> Deaths (total #):</b> {point.deaths_total:.0f}<br>",
-                           "<b style=\"color:red\"> Estimated reporting of fevers to health center:</b> {point.pseektrthc10x10:.3f}<br>"
-                           ),
-        footerFormat = "</p>"
-      )) %>%
-    hc_colorAxis(stops = color_stops(9, c('#fff5f0', '#fee0d2', '#fcbba1', '#fc9272', '#fb6a4a', 
-                                           '#ef3b2c', '#cb181d', '#a50f15', '#67000d'))) %>%    
-    hc_legend(enabled = TRUE, title = "Incidence of deaths per 100k persons") %>%
-    hc_exporting(enabled = TRUE)%>%
-    hc_drilldown(
-      series = series.list,
-      activeDataLabelStyle = list(
-        color =  '#FFFFFF',
-        textDecoration = 'none'
-      )
-    ) %>%
-    hc_mapNavigation(enabled = TRUE) %>%
-    browsable()
+# From http://leafletjs.com/examples/choropleth/us-states.js
+admin2 <- readOGR("output/shapefiles/admin2.shp")
+admin2$shape_id <- 1:nrow(admin2@data)
+country <- readOGR("output/shapefiles/country.shp")
+
+# merge
+admin2@data <- left_join(admin2@data, admin_dt)
+
+bins <- c(0, 50, 100, 150, 250, 300)
+pal <- colorBin("YlOrRd", domain = admin2$inc_per100k, bins = bins)
+
+labels <- sprintf(
+  "<strong>Admin name (type): %s (%s)</strong><br/> <strong>Country: %s</strong><br/> Pop: %s <br/> Prop pop over 65: %0.3g <br/> Total # of deaths: %0.2f <br/> Estimated reporting of fevers to health centers: %0.3g",
+  admin2$name_2, admin2$type_2, admin2$name_0, 
+  format(admin2$pop, big.mark = ",", scientific = FALSE, digits = 0), admin2$prop_ov65,
+  admin2$deaths_total,
+  admin2$pseektrthc10x10
+) %>% lapply(htmltools::HTML)
+
+
+leaflet() %>%
+  fitBounds(-25.35875, -40.37063, 63.5003, 37.54327) %>% # from bbox(admin2)
+  addTiles() %>%
+   addPolygons(data = admin2,
+    fillColor = ~pal(inc_per100k),
+    weight = 0.5,
+    opacity = 1,
+    color = "grey",
+    dashArray = "",
+    fillOpacity = 0.7,
+    highlight = highlightOptions(
+      weight = 5,
+      color = "#666",
+      dashArray = "",
+      fillOpacity = 0.7,
+      bringToFront = TRUE),
+    label = labels,
+    labelOptions = labelOptions(
+      style = list("font-weight" = "normal", padding = "3px 8px"),
+      textsize = "15px",
+      direction = "auto")) %>%
+  addLegend(pal = pal,  
+            values = admin2$inc_per100k, opacity = 0.7, 
+            position = "bottomright", title = "Deaths per 100,000 persons") 
+
 ```
+
 
 Methods
 ======================================================================
 
-Coming soon!
+We estimate infection fatality rates and hospitalization rates from [Verity et al. 2020] from data from the Wuhan outbreak. These are corrected for both asymptomatic infection and underreporting of symptomatic cases. We assume that between 20 - 40 % of people are cummulatively infected.
+
+Figure 1. Predicted IFR by age group
+
+Figure 2. Predicted hospitalization rates by age group.
+
+Importantly the IFRs are estimated from the Wuhan context and could be thought of as a lower bound. Thus, the hospitalization rates it would be important to know how many people die in the absence of ventilators, etc.
+
 
 <style>
 
