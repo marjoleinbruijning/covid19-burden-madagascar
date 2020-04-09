@@ -3,7 +3,7 @@ title: "Estimating the burden of COVID-19 in African countries"
 output: 
   flexdashboard::flex_dashboard:
     vertical_layout: fill
-    orientation: rows
+    orientation: row
     source_code: embed
     theme: simplex
 ---
@@ -12,73 +12,89 @@ output:
 knitr::opts_chunk$set(message = FALSE, warning = FALSE)
 
 # Load Packages
-library(highcharter)
 library(htmltools)
-library(rio)
-library(stringr)
 library(DT)
 library(dplyr)
-library(jsonlite)
 library(data.table)
 library(leaflet)
+library(rgdal)
+library(ggplot2)
+library(plotly)
+
+# set parameters here
+p_infected <- 0.2 # 20% cummulative infections
+age_brackets <- c("A0004", "A0509", "A1014", "A1519", "A2024", "A2529", "A3034", "A3539", "A4044",
+                "A4549", "A5054", "A5559", "A6064", "A65PL") # names should match colnames!
+
+# hospitalization rates from Verity et al. 2020 table 3
+# 10 yr age brackets, hence rep for 5 yr age brackets & % hence divide by 100
+hosp_mean <- rep(c(0, 0.0408, 1.04, 3.43, 4.25, 8.16, 11.8)/100, each = 2)
+hosp_lower <- rep(c(0, 0.0243, 0.622, 2.04, 2.53, 4.86, 7.01)/100, each = 2)
+hosp_upper <- rep(c(0, 0.0832, 2.13, 7.00, 8.68, 16.7, 24.0)/100, each = 2)
+
+# ifr for these brackets from Verity et al. 2020 table 1
+ifr_mean <- rep(c(0.00161, 0.00695, 0.0309, 0.0844, 0.161, 0.595, 1.93)/100, each = 2)
+ifr_lower <- rep(c(0.000185, 0.00149, 0.0138, 0.0408, 0.0764, 0.344, 1.11)/100, each = 2)
+ifr_upper <- rep(c(0.0249, 0.0502, 0.0923, 0.185, 0.323, 1.28, 3.89)/100, each = 2)
+
+# set the names
+names(hosp_mean) <- names(hosp_lower) <- names(hosp_upper) <- names(ifr_mean) <- names(ifr_lower) <- names(ifr_upper) <- age_brackets
 
 ```
 
 
 ```{r ests, include = FALSE}
 # read in data
-country <- fromJSON("output/geojson/country.geojson", simplifyVector = FALSE)
-admin <-  fromJSON("output/geojson/admin2.geojson", simplifyVector = FALSE)
 country_dt <- fread("output/country_dt.csv")
-admin_dt <- fread("output/admin2_dt.csv")
-
-# get cfrs
-# Per Jess
-age.upper <- c(9, 19, 29, 39, 49, 59, 69, 79, 89)
-N.cases <- c(416, 549, 3619, 7600, 8571, 10008, 8583, 3918, 1408)
-N.deaths <- c(0, 1, 7, 18, 38, 130, 309, 312, 208)
-CFR <- N.deaths/N.cases
-fit.cfr <- smooth.spline(age.upper - 4.5, (N.deaths/ N.cases)) # mid-point of age bracket & cases/deaths
-
-# take midpoint of our age brackets for afr data
-age_lower <- seq(0, 65, by = 5)
-age_upper <- age_lower + 4 # keep age upper at 69 (conservative estimates of mortality)
-mid_pt <- (age_lower + age_upper)/2
-cfr <- pmax(predict(fit.cfr, mid_pt)$y, 0)
-names(cfr) <- c("A0004", "A0509", "A1014", "A1519", "A2024", "A2529", "A3034", "A3539", "A4044",
-                "A4549", "A5054", "A5559", "A6064", "A65PL") # names should match colnames!
-p_infected <- 0.3 # 30% cummulative infections
-
-# Relative symptomatic by age (taking mid_pt of age bins)
-cm_interpolate_cos <- function(x, x0, y0, x1, y1) {
-  ifelse(x < x0, y0, 
-         ifelse(x > x1, y1, y0 + (y1 - y0) * (0.5 - 0.5 * cos(pi * (x - x0) / (x1 - x0)))))
-}
-symp.pars <- data.frame("age_y" = 14, "age_m" = 55, "age_o" = 64, "symp_y" = 0.056,
-                      "symp_m"= 0.49, "symp_o"= 0.74)
-young  = cm_interpolate_cos(mid_pt, symp.pars$age_y, 1, symp.pars$age_m, 0);
-old    = cm_interpolate_cos(mid_pt, symp.pars$age_m, 0, symp.pars$age_o, 1);
-middle = 1 - young - old;
-rel.symp <- young * symp.pars$symp_y + middle * symp.pars$symp_m + old * symp.pars$symp_o
-names(rel.symp) <- c("A0004", "A0509", "A1014", "A1519", "A2024", "A2529", "A3034", "A3539", 
-                     "A4044", "A4549", "A5054", "A5559", "A6064", "A65PL") # names should match colnames!
+admin_dt <- fread("output/admin1_dt.csv")
 
 # apply to data @ country/admin level
-admin_dt[, (paste0("deaths_", names(cfr))) :=  Map("*", .SD, cfr*p_infected*rel.symp), 
-                           .SDcols = names(cfr)]
-admin_dt$deaths_total <- rowSums(admin_dt[, paste0("deaths_", names(cfr)), with = FALSE], 
-                                   na.rm = TRUE)
+admin_dt[, c("deaths_mean", "deaths_upper", "deaths_lower") := 
+           .(rowSums(admin_dt[, Map("*", .SD, ifr_mean*p_infected), .SDcols = names(ifr_mean)], 
+                     na.rm = TRUE), 
+             rowSums(admin_dt[, Map("*", .SD, ifr_upper*p_infected), .SDcols = names(ifr_mean)], 
+                     na.rm = TRUE),
+             rowSums(admin_dt[, Map("*", .SD, ifr_lower*p_infected), .SDcols = names(ifr_mean)], 
+                     na.rm = TRUE)), .SDcols = names(ifr_mean)]
+admin_dt[, c("hosps_mean", "hosps_upper", "hosps_lower") := 
+           .(rowSums(admin_dt[, Map("*", .SD, hosp_mean*p_infected), .SDcols = names(hosp_mean)], 
+                     na.rm = TRUE), 
+             rowSums(admin_dt[, Map("*", .SD, hosp_upper*p_infected), .SDcols = names(hosp_mean)], 
+                     na.rm = TRUE),
+             rowSums(admin_dt[, Map("*", .SD, hosp_lower*p_infected), .SDcols = names(hosp_mean)], 
+                     na.rm = TRUE))]
 admin_dt$prop_ov65 <- admin_dt$A65PL/admin_dt$pop
-admin_dt$inc_per100k <- admin_dt$deaths_total/admin_dt$pop*1e5
+admin_dt$inc_per100k <- admin_dt$deaths_mean/admin_dt$pop*1e5
 
 # country level
-country_dt[, (paste0("deaths_", names(cfr))) :=  Map("*", .SD, cfr*p_infected*rel.symp), 
-                           .SDcols = names(cfr)]
-country_dt$deaths_total <- rowSums(country_dt[, paste0("deaths_", names(cfr)), with = FALSE], 
-                                   na.rm = TRUE)
+# apply to data @ country/admin level
+country_dt[, c("deaths_mean", "deaths_upper", "deaths_lower") := 
+           .(rowSums(country_dt[, Map("*", .SD, ifr_mean*p_infected), .SDcols = names(ifr_mean)], 
+                     na.rm = TRUE), 
+             rowSums(country_dt[, Map("*", .SD, ifr_upper*p_infected), .SDcols = names(ifr_mean)], 
+                     na.rm = TRUE),
+             rowSums(country_dt[, Map("*", .SD, ifr_lower*p_infected), .SDcols = names(ifr_mean)], 
+                     na.rm = TRUE)), .SDcols = names(ifr_mean)]
+country_dt[, c("hosps_mean", "hosps_upper", "hosps_lower") := 
+           .(rowSums(country_dt[, Map("*", .SD, hosp_mean*p_infected), .SDcols = names(hosp_mean)], 
+                     na.rm = TRUE), 
+             rowSums(country_dt[, Map("*", .SD, hosp_upper*p_infected), .SDcols = names(hosp_mean)], 
+                     na.rm = TRUE),
+             rowSums(country_dt[, Map("*", .SD, hosp_lower*p_infected), .SDcols = names(hosp_mean)], 
+                     na.rm = TRUE))]
 country_dt$prop_ov65 <- country_dt$A65PL/country_dt$pop
-country_dt$inc_per100k <- country_dt$deaths_total/country_dt$pop*1e5
+country_dt$inc_per100k <- country_dt$deaths_mean/country_dt$pop*1e5
 
+# From http://leafletjs.com/examples/choropleth/us-states.js
+admin1 <- readOGR("output/shapefiles/admin1.shp")
+admin1$id_match <- 1:nrow(admin1@data)
+country <- readOGR("output/shapefiles/country.shp")
+
+# merge
+admin1@data <- left_join(admin1@data, 
+                         select(admin_dt, starts_with("death"), starts_with("hosp"), starts_with("pseek"),
+                                pop, admin_name, id_match, admin_type, prop_ov65, 
+                                inc_per100k))
 ```
 
 
@@ -86,7 +102,7 @@ Sidebar {.sidebar}
 ======================================================================
 The goal of this project is to map the potential burden of COVID-19 in African countries. Currently we are focusing on demography, but hope to incorporate other factors such as healthcare capacity.
 
-A summary of our approach is described in the __Methods__ tab. We use demographic data from [WorldPop](https://www.worldpop.org/geodata/summary?id=1276), administrative data from The Malaria Atlas Project (https://malariaatlas.org) accessed through the R package [`malariaAtlas`](https://cran.r-project.org/web/packages/malariaAtlas/index.html). We also have summarized data from [Alegana et al] on probability of seeking treatment and travel times to health facilities. Download these data and the associated metadata here. We take data from Verity et al. & also assume cummulative infection rates.
+A summary of our approach is described in the __Methods__ tab. We use demographic data from [WorldPop](https://www.worldpop.org/geodata/summary?id=1276), administrative data from [The Malaria Atlas Project](https://malariaatlas.org) accessed through the R package [`malariaAtlas`](https://cran.r-project.org/web/packages/malariaAtlas/index.html). We also have summarized data from [Alegana et al] on probability of seeking treatment and travel times to health facilities. Download these data and the associated metadata here. We take data from [Verity et al. 2020](https://www.thelancet.com/journals/laninf/article/PIIS1473-3099(20)30243-7/fulltext#seccestitle230) & also assume cummulative infection rate
 
 
 To explore these assumptions, check out our shiny app. [here](https://marjoleinbruijning.shinyapps.io/covid19-burden-africa/).
@@ -98,56 +114,71 @@ All code & data are available [here].
 Mapping burden
 ======================================================================
 
-Row {{data-height=1000}}
+Row {data-height=1000}
 -----------------------------------------------------------------------
 
 ### Burden mapped to country & Admin 2 level (where available)
 
 ```{r}
-# From http://leafletjs.com/examples/choropleth/us-states.js
-admin2 <- readOGR("output/shapefiles/admin2.shp")
-admin2$shape_id <- 1:nrow(admin2@data)
-country <- readOGR("output/shapefiles/country.shp")
-
-# merge
-admin2@data <- left_join(admin2@data, admin_dt)
-
-bins <- c(0, 50, 100, 150, 250, 300)
-pal <- colorBin("YlOrRd", domain = admin2$inc_per100k, bins = bins)
+bins <- c(0, 20, 40, 60, 80, 100, 150)
+pal <- colorBin("Reds", domain = admin1$inc_per100k)
 
 labels <- sprintf(
-  "<strong>Admin name (type): %s (%s)</strong><br/> <strong>Country: %s</strong><br/> Pop: %s <br/> Prop pop over 65: %0.3g <br/> Total # of deaths: %0.2f <br/> Estimated reporting of fevers to health centers: %0.3g",
-  admin2$name_2, admin2$type_2, admin2$name_0, 
-  format(admin2$pop, big.mark = ",", scientific = FALSE, digits = 0), admin2$prop_ov65,
-  admin2$deaths_total,
-  admin2$pseektrthc10x10
+  "<strong>Country: %s</strong><br/> <strong>%s (%s)</strong><br/> Pop: %s <br/> &#37; pop over 65: %0.2g <br/> Estimated deaths: %0.2f (%0.2f - %0.2f) <br/> Estimated hospitalizations: %0.2f (%0.2f - %0.2f) <br/> Estimated reporting of fevers to hospitals: %0.3g",
+  admin1$name_0, admin1$admin_name, admin1$admin_type,  
+  format(admin1$pop, big.mark = ",", scientific = FALSE, digits = 0), admin1$prop_ov65*100,
+  admin1$deaths_mean, admin1$deaths_lower, admin1$deaths_upper, 
+  admin1$hosps_mean, admin1$hosps_lower, admin1$hosps_upper,
+  admin1$pseektrthosp10x10
 ) %>% lapply(htmltools::HTML)
 
 
 leaflet() %>%
-  fitBounds(-25.35875, -40.37063, 63.5003, 37.54327) %>% # from bbox(admin2)
-  addTiles() %>%
-   addPolygons(data = admin2,
-    fillColor = ~pal(inc_per100k),
-    weight = 0.5,
-    opacity = 1,
-    color = "grey",
-    dashArray = "",
-    fillOpacity = 0.7,
-    highlight = highlightOptions(
-      weight = 5,
-      color = "#666",
-      dashArray = "",
-      fillOpacity = 0.7,
-      bringToFront = TRUE),
-    label = labels,
-    labelOptions = labelOptions(
-      style = list("font-weight" = "normal", padding = "3px 8px"),
-      textsize = "15px",
-      direction = "auto")) %>%
+  setMaxBounds(-25.35875, -40.37063, 63.5003, 37.54327) %>% # from bbox(admin2)
+  addProviderTiles('CartoDB.Positron') %>%
+  addPolygons(data = admin1,
+              color = "black", weight = 0.001, smooth = 0.3, 
+              fillColor = ~pal(inc_per100k),
+              fillOpacity = 0.7,
+              dashArray = NULL,
+              highlight = highlightOptions(
+                weight = 3,
+                color = "red",
+                dashArray = NULL,
+                fillOpacity = 0.7,
+                bringToFront = TRUE),
+              label = labels,
+              labelOptions = labelOptions(
+                style = list("font-weight" = "normal", padding = "3px 8px"),
+                textsize = "15px",
+                direction = "auto")) %>%
   addLegend(pal = pal,  
-            values = admin2$inc_per100k, opacity = 0.7, 
-            position = "bottomright", title = "Deaths per 100,000 persons") 
+            values = admin1$inc_per100k, opacity = 0.7, 
+            position = "bottomright", title = "Deaths per 100,000 persons") %>%
+  addPolygons(data = country, color = "#444444", weight = 2, fill = FALSE)
+
+```
+
+Row {data-height=600}
+-----------------------------------------------------------------------
+
+### Relationship between admin/country level ests of burden
+
+```{r}
+country@data <- left_join(country@data, 
+                          select(country_dt, iso, starts_with("death"), starts_with("hosp"), 
+                                 starts_with("pseek"), pop, prop_ov65))
+p <- ggplot() +
+  geom_point(data = filter(country@data, !is.na(hosps_mean)), 
+             aes(x = reorder(name_0, prop_ov65), y = hosps_mean/pop*1e5, 
+                                    color = prop_ov65), shape = 15) +
+  geom_point(data = filter(admin1@data, !is.na(hosps_mean)), 
+             aes(x = name_0, y = hosps_mean/pop*1e5, color = prop_ov65), 
+             shape = 22, alpha = 0.5, size = 0.5) +
+  labs(y = "Hospitalizations per \n 100,000 persons", x = "") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+  scale_color_distiller(palette = "PuRd", name = "Proportion of pop \n over 65")
+ggplotly(p)
 
 ```
 
