@@ -2,7 +2,7 @@
 title: "Estimating the burden of COVID-19 in African countries"
 output: 
   flexdashboard::flex_dashboard:
-    vertical_layout: fill
+    vertical_layout: scroll
     orientation: row
     source_code: embed
     theme: simplex
@@ -100,16 +100,19 @@ admin1@data <- left_join(admin1@data,
 
 Sidebar {.sidebar}
 ======================================================================
+  
+<br>
+<br>
+
 The goal of this project is to map the potential burden of COVID-19 in African countries. Currently we are focusing on demography, but hope to incorporate other factors such as healthcare capacity.
 
-A summary of our approach is described in the __Methods__ tab. We use demographic data from [WorldPop](https://www.worldpop.org/geodata/summary?id=1276), administrative data from [The Malaria Atlas Project](https://malariaatlas.org) accessed through the R package [`malariaAtlas`](https://cran.r-project.org/web/packages/malariaAtlas/index.html). We also have summarized data from [Alegana et al] on probability of seeking treatment and travel times to health facilities. Download these data and the associated metadata here. We take data from [Verity et al. 2020](https://www.thelancet.com/journals/laninf/article/PIIS1473-3099(20)30243-7/fulltext#seccestitle230) & also assume cummulative infection rate
+A summary of our approach is described in the __Methods__ tab. We use demographic data from [WorldPop](https://www.worldpop.org/geodata/summary?id=1276), administrative data from [The Malaria Atlas Project](https://malariaatlas.org) accessed through the R package [`malariaAtlas`](https://cran.r-project.org/web/packages/malariaAtlas/index.html). We also have summarized data from [Alegana et al. 2018](https://www.nature.com/articles/s41467-018-07536-9) on probability of seeking treatment and travel times to health facilities. We take estimates of IFR and hospitalization rates from [Verity et al. 2020](https://www.thelancet.com/journals/laninf/article/PIIS1473-3099(20)30243-7/fulltext#seccestitle230) & also assume cummulative infection rate
 
-
-To explore these assumptions, check out our shiny app. [here](https://marjoleinbruijning.shinyapps.io/covid19-burden-africa/).
+To explore how changing this assumption affects estimates at a finer scale, check out our shiny app. [here](https://marjoleinbruijning.shinyapps.io/covid19-burden-africa/).
 
 This project is an offshoot of this work by [Miller et al](https://github.com/ianfmiller/covid19-burden-mapping) mapping burden and hospital capacity in the US.
 
-All code & data are available [here].
+All code & data are available [here](https://github.com/marjoleinbruijning/covid19-burden-madagascar).
 
 Mapping burden
 ======================================================================
@@ -124,7 +127,7 @@ bins <- c(0, 20, 40, 60, 80, 100, 150)
 pal <- colorBin("Reds", domain = admin1$inc_per100k)
 
 labels <- sprintf(
-  "<strong>Country: %s</strong><br/> <strong>%s (%s)</strong><br/> Pop: %s <br/> &#37; pop over 65: %0.2g <br/> Estimated deaths: %0.2f (%0.2f - %0.2f) <br/> Estimated hospitalizations: %0.2f (%0.2f - %0.2f) <br/> Estimated reporting of fevers to hospitals: %0.3g",
+  "<strong>Country: %s</strong><br/> <strong>%s (%s)</strong><br/> Pop: %s <br/> &#37; %0.2g pop over 65 <br/> Estimated deaths: %0.2f (%0.2f - %0.2f) <br/> Estimated hospitalizations: %0.2f (%0.2f - %0.2f) <br/> Estimated reporting of fevers to hospitals: %0.3g",
   admin1$name_0, admin1$admin_name, admin1$admin_type,  
   format(admin1$pop, big.mark = ",", scientific = FALSE, digits = 0), admin1$prop_ov65*100,
   admin1$deaths_mean, admin1$deaths_lower, admin1$deaths_upper, 
@@ -134,7 +137,7 @@ labels <- sprintf(
 
 
 leaflet() %>%
-  setMaxBounds(-25.35875, -40.37063, 63.5003, 37.54327) %>% # from bbox(admin2)
+  fitBounds(-25.35875, -40.37063, 63.5003, 37.54327) %>% # from bbox(admin2)
   addProviderTiles('CartoDB.Positron') %>%
   addPolygons(data = admin1,
               color = "black", weight = 0.001, smooth = 0.3, 
@@ -183,17 +186,43 @@ ggplotly(p)
 ```
 
 
-Methods
+Methods (In progress)
 ======================================================================
 
-We estimate infection fatality rates and hospitalization rates from [Verity et al. 2020] from data from the Wuhan outbreak. These are corrected for both asymptomatic infection and underreporting of symptomatic cases. We assume that between 20 - 40 % of people are cummulatively infected.
+Row {data-height=600}
+-----------------------------------------------------------------------
 
-Figure 1. Predicted IFR by age group
+### Figure 1. Predicted IFR by age group
 
-Figure 2. Predicted hospitalization rates by age group.
+```{r}
+ages_lower <- seq(0, 60, by = 5)
+age_labs <- paste0(ages_lower, " - ", ages_lower + 4)
+age_labs <- c(age_labs, "65 +")
+ifr_df <- data.frame(ifr_mean, ifr_upper, ifr_lower, age_brackets)
+ggplot(data = ifr_df, aes(x = age_brackets, y = ifr_mean*100)) +
+  geom_pointrange(aes(ymin = ifr_lower*100, ymax = ifr_upper*100)) +
+  scale_x_discrete(labels = age_labs) +
+  labs(x = "Age bin", y = "Infection fatality ratio (%)") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
 
-Importantly the IFRs are estimated from the Wuhan context and could be thought of as a lower bound. Thus, the hospitalization rates it would be important to know how many people die in the absence of ventilators, etc.
+Estimates from Verity et al. 2020, from Wuhan data, accounting for asymptomatic & underascertainment.
 
+### Figure 1. Predicted hospitalizations by age group
+
+```{r}
+ages_lower <- seq(0, 60, by = 5)
+age_labs <- paste0(ages_lower, " - ", ages_lower + 4)
+age_labs <- c(age_labs, "65 +")
+hosp_df <- data.frame(hosp_mean, hosp_lower, hosp_upper, age_brackets)
+ggplot(data = hosp_df, aes(x = age_brackets, y = hosp_mean*100)) +
+  geom_pointrange(aes(ymin = hosp_lower*100, ymax = hosp_upper*100)) +
+  scale_x_discrete(labels = age_labs) +
+  labs(x = "Age bin", y = "% of all cases \n requiring hospitalization") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+Estimates from Verity et al. 2020, from Wuhan data, accounting for asymptomatic & underascertainment.
 
 <style>
 
